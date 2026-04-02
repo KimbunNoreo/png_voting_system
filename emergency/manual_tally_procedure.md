@@ -1,0 +1,4 @@
+﻿# manual tally procedure
+
+
+

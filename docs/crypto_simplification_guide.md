@@ -1,0 +1,4 @@
+﻿# crypto simplification guide
+
+
+

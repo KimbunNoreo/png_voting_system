@@ -1,0 +1,4 @@
+﻿# device tamper detected
+
+
+
