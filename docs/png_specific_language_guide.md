@@ -1,4 +1,0 @@
-﻿# png specific language guide
-
-
-

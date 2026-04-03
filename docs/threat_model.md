@@ -1,4 +1,0 @@
-﻿# threat model
-
-
-

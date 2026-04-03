@@ -1,4 +1,0 @@
-﻿# mass freeze activation
-
-
-

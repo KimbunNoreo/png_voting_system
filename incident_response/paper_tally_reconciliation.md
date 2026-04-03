@@ -1,4 +1,0 @@
-﻿# paper tally reconciliation
-
-
-

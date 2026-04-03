@@ -1,4 +1,0 @@
-﻿# disputed vote handling
-
-
-

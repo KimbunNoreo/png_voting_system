@@ -1,4 +1,0 @@
-﻿# secret ballot guarantee
-
-
-

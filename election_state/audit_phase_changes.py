@@ -1,4 +1,0 @@
-﻿# zero trust architecture
-
-
-

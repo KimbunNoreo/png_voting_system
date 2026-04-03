@@ -1,4 +1,0 @@
-﻿# contested election
-
-
-

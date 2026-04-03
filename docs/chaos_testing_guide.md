@@ -1,4 +1,0 @@
-﻿# chaos testing guide
-
-
-

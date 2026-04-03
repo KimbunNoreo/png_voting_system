@@ -1,4 +1,0 @@
-﻿# token replay prevention training
-
-
-

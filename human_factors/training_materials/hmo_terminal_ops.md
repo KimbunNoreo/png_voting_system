@@ -1,4 +1,0 @@
-﻿# hmo terminal ops
-
-
-

@@ -1,4 +1,0 @@
-﻿# en terminal ops
-
-
-

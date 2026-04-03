@@ -1,4 +1,0 @@
-﻿# gdpr png privacy
-
-
-

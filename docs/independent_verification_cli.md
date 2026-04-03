@@ -1,4 +1,0 @@
-﻿# independent verification cli
-
-
-

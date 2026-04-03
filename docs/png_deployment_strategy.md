@@ -1,4 +1,0 @@
-﻿# png deployment strategy
-
-
-

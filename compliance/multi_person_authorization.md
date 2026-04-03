@@ -1,4 +1,0 @@
-﻿# multi person authorization
-
-
-

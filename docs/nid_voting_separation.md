@@ -1,4 +1,0 @@
-﻿# nid voting separation
-
-
-

@@ -1,4 +1,0 @@
-﻿# election phase violation
-
-
-

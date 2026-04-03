@@ -1,4 +1,0 @@
-﻿# nid integration training
-
-
-

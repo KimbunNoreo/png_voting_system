@@ -1,4 +1,0 @@
-﻿# offline device theft
-
-
-

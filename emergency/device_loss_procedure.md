@@ -1,4 +1,0 @@
-﻿# device loss procedure
-
-
-

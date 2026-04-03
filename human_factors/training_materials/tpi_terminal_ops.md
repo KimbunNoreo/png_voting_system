@@ -1,4 +1,0 @@
-﻿# tpi terminal ops
-
-
-

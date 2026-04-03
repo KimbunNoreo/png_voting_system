@@ -1,4 +1,0 @@
-﻿# insider threat mitigation
-
-
-

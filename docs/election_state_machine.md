@@ -1,4 +1,0 @@
-﻿# election state machine
-
-
-

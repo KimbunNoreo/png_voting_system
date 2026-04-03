@@ -1,4 +1,0 @@
-﻿# emergency freeze policy
-
-
-

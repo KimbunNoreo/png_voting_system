@@ -1,4 +1,0 @@
-﻿# rate limiting strategy
-
-
-

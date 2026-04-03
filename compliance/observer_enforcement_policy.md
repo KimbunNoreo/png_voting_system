@@ -1,4 +1,0 @@
-﻿# observer enforcement policy
-
-
-
