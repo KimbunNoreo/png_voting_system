@@ -7,6 +7,12 @@ import json
 import sys
 
 from config import get_settings
+from services.endpoint_inventory import (
+    LOCAL_RUNTIME_ENDPOINTS,
+    OFFLINE_SYNC_RUNTIME_ENDPOINTS,
+    render_inventory_lines,
+    render_inventory_markdown,
+)
 from services.api_gateway.local_runtime import run_local_demo_server
 from services.offline_sync_service.runtime import run_offline_sync_server
 
@@ -25,6 +31,32 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         print("phase-misconfigured")
         return 1
+    if command == "list-endpoints":
+        markdown = "--markdown" in args[1:]
+        filtered_args = [arg for arg in args[1:] if arg != "--markdown"]
+        target = filtered_args[0] if filtered_args else "all"
+        if target not in {"all", "local", "offline-sync"}:
+            print(f"unknown endpoint inventory target: {target}")
+            return 2
+        if markdown:
+            sections: list[str] = []
+            if target in {"all", "local"}:
+                sections.append(render_inventory_markdown("Local Runtime", LOCAL_RUNTIME_ENDPOINTS))
+            if target in {"all", "offline-sync"}:
+                sections.append(render_inventory_markdown("Offline Sync Runtime", OFFLINE_SYNC_RUNTIME_ENDPOINTS))
+            print("\n\n".join(sections))
+            return 0
+        if target in {"all", "local"}:
+            print("[local-runtime]")
+            for line in render_inventory_lines(LOCAL_RUNTIME_ENDPOINTS):
+                print(line)
+        if target == "all":
+            print()
+        if target in {"all", "offline-sync"}:
+            print("[offline-sync-runtime]")
+            for line in render_inventory_lines(OFFLINE_SYNC_RUNTIME_ENDPOINTS):
+                print(line)
+        return 0
     if command == "runserver":
         host = "127.0.0.1"
         port = 8000

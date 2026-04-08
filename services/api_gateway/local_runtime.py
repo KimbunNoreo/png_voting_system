@@ -20,6 +20,7 @@ from services.audit_service.detection.tamper import verify_hash_chain
 from services.audit_service.observer.export_audit import export_audit_log
 from services.audit_service.observer.read_only_api import fetch_audit_entries
 from services.audit_service.reports.compliance import generate_compliance_report
+from services.endpoint_inventory import LOCAL_RUNTIME_ENDPOINTS, render_inventory_lines
 from services.nid_client.exceptions import NIDValidationError
 from services.offline_sync_service.api.operator import OfflineSyncOperatorAPI
 from services.offline_sync_service.factory import build_offline_sync_dependencies
@@ -584,12 +585,8 @@ def run_local_demo_server(host: str = "127.0.0.1", port: int = 8000) -> None:
 
     server = ThreadingHTTPServer((host, port), Handler)
     print(f"SecureVote local demo server listening on http://{host}:{port}")
-    print("Health: GET /health")
-    print("Verify token: POST /api/v1/vote/verify-token")
-    print("Cast vote: POST /api/v1/vote/cast")
-    print("Ballot: GET /api/v1/vote/ballots/ballot-2026")
-    print("Observer audit: GET /api/v1/vote/observer/audit")
-    print("Observer tally: GET /api/v1/vote/observer/tally/election-2026")
+    for line in render_inventory_lines(LOCAL_RUNTIME_ENDPOINTS):
+        print(line)
     try:
         server.serve_forever()
     except KeyboardInterrupt:

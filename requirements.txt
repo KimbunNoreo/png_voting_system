@@ -7,3 +7,4 @@ celery>=5.4,<5.5
 redis>=5.2,<5.3
 psycopg[binary]>=3.2,<3.3
 opencv-python-headless>=4.10,<4.11
+PyYAML>=6.0,<7.0

@@ -10,6 +10,7 @@ from config import get_settings
 from legal_evidence import generate_offline_sync_evidence_bundle
 from legal_evidence.signed_offline_sync_export import create_signed_offline_sync_export
 from services.audit_service import WORMLogger
+from services.endpoint_inventory import OFFLINE_SYNC_RUNTIME_ENDPOINTS, render_inventory_lines
 from services.offline_sync_service.factory import OfflineSyncDependencies, build_offline_sync_dependencies
 from services.voting_service.crypto.phase1_standard import Phase1StandardCrypto
 
@@ -284,15 +285,8 @@ def run_offline_sync_server(host: str = "127.0.0.1", port: int = 8100) -> None:
 
     server = ThreadingHTTPServer((host, port), Handler)
     print(f"Offline sync service listening on http://{host}:{port}")
-    print("Health: GET /health")
-    print("Ready: GET /ready")
-    print("Stage: POST /api/v1/offline-sync/stage")
-    print("Queue: GET /api/v1/offline-sync/queue")
-    print("Flush: POST /api/v1/offline-sync/flush")
-    print("Operations: GET /api/v1/offline-sync/operations")
-    print("Operations Export: GET /api/v1/offline-sync/operations/export")
-    print("Operations Evidence Bundle: GET /api/v1/offline-sync/operations/evidence-bundle")
-    print("Status: GET /api/v1/offline-sync/status")
+    for line in render_inventory_lines(OFFLINE_SYNC_RUNTIME_ENDPOINTS):
+        print(line)
     try:
         server.serve_forever()
     except KeyboardInterrupt:

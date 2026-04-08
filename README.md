@@ -34,6 +34,9 @@ docker-compose up --build
 
 - Gateway and voting demo runtime: `python manage.py runserver 127.0.0.1:8000`
 - Standalone offline sync service: `python manage.py run-offline-sync 127.0.0.1:8100`
+- Shared endpoint inventory:
+  - `python manage.py list-endpoints`
+  - `python manage.py list-endpoints --markdown`
 - Make targets:
   - `make run`
   - `make run-offline-sync`
@@ -66,6 +69,17 @@ The offline sync service now runs as its own operator-facing HTTP surface with P
 All offline sync admin endpoints require `Authorization: Bearer admin-...` in the current runtime. Conflict-heavy flushes require 2 unique approvers.
 
 For concrete request and response examples, see `docs/offline_sync_service_api.md`.
+
+## Compliance And Evidence
+
+- `GET /api/v1/vote/compliance/report`
+  Returns audit-chain health plus offline sync reconciliation posture.
+- `GET /api/v1/vote/compliance/offline-sync-evidence`
+  Returns an observer-facing evidence bundle for offline sync reconciliation review.
+- `GET /api/v1/offline-sync/operations/export`
+  Returns a signed sanitized export of offline sync operation history.
+- `GET /api/v1/offline-sync/operations/evidence-bundle`
+  Returns a court-ready evidence bundle from the standalone offline sync service.
 
 ## Deployment Notes
 

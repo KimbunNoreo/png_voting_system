@@ -3,6 +3,18 @@ info:
   title: SecureVote PNG API
   version: 1.0.0
 paths:
+  /health:
+    get:
+      summary: Runtime liveness probe
+      responses:
+        "200":
+          $ref: "#/components/responses/HealthResponse"
+  /ready:
+    get:
+      summary: Standalone offline sync readiness probe
+      responses:
+        "200":
+          $ref: "#/components/responses/OfflineSyncReadyResponse"
   /api/v1/vote/verify-token:
     post:
       summary: Validate an externally issued voting token
@@ -11,11 +23,7 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required: [token]
-              properties:
-                token:
-                  type: string
+              $ref: "#/components/schemas/TokenVerificationRequest"
       responses:
         "200":
           description: Token accepted
@@ -27,16 +35,17 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required: [ballot_id, election_id, selections, token, device_id]
+              $ref: "#/components/schemas/CastVoteRequest"
       responses:
-        "200":
+        "201":
           description: Vote accepted
         "409":
           description: Replay or rate-limit rejection
-  /api/v1/vote/public-result:
+  /api/v1/vote/public-result/{election_id}:
     get:
       summary: Fetch public result commitment
+      parameters:
+        - $ref: "#/components/parameters/ElectionId"
       responses:
         "200":
           description: Public result hash
@@ -46,3 +55,628 @@ paths:
       responses:
         "200":
           description: Upstream verification response
+  /api/v1/vote/observer/audit:
+    get:
+      summary: Fetch redacted audit entries for observer review
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Hash-chained audit entries
+  /api/v1/vote/observer/audit/export:
+    get:
+      summary: Export redacted audit entries for observer review
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Redacted audit export
+  /api/v1/vote/observer/tally/{election_id}:
+    get:
+      summary: Fetch observer tally for one election
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ElectionId"
+      responses:
+        "200":
+          description: Observer tally
+  /api/v1/vote/observer/paper-reconcile:
+    post:
+      summary: Compare paper ballots with digital tally
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PaperReconcileRequest"
+      responses:
+        "200":
+          description: Paper-to-digital reconciliation result
+  /api/v1/vote/compliance/report:
+    get:
+      summary: Fetch compliance and reconciliation posture report
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          $ref: "#/components/responses/ComplianceReportResponse"
+  /api/v1/vote/compliance/offline-sync-evidence:
+    get:
+      summary: Build observer-facing offline sync evidence bundle
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OfflineSyncEvidenceRequest"
+      responses:
+        "200":
+          $ref: "#/components/responses/EvidenceBundleResponse"
+  /api/v1/vote/admin/state/{election_id}:
+    get:
+      summary: Fetch current election control-plane state
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ElectionId"
+      responses:
+        "200":
+          description: Election state and phase history
+  /api/v1/vote/admin/phase-transition:
+    post:
+      summary: Transition election phase under multi-person control
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PhaseTransitionRequest"
+      responses:
+        "200":
+          description: Updated election state
+  /api/v1/vote/admin/freeze/activate:
+    post:
+      summary: Activate global election freeze
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Freeze activated
+  /api/v1/vote/admin/freeze/clear:
+    post:
+      summary: Clear global election freeze
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Freeze cleared
+  /api/v1/vote/admin/offline-sync/stage:
+    post:
+      summary: Stage one sanitized offline sync record
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OfflineSyncStageRequest"
+      responses:
+        "200":
+          description: Record staged
+  /api/v1/vote/admin/offline-sync/queue:
+    get:
+      summary: Inspect current offline sync queue
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Queue state
+  /api/v1/vote/admin/offline-sync/flush:
+    post:
+      summary: Flush offline sync queue and emit signed artifacts
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OfflineSyncFlushRequest"
+      responses:
+        "200":
+          $ref: "#/components/responses/OfflineSyncFlushResponse"
+  /api/v1/vote/admin/offline-sync/approvals:
+    get:
+      summary: Fetch offline sync approval history
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          $ref: "#/components/responses/ApprovalHistoryResponse"
+  /api/v1/offline-sync/status:
+    get:
+      summary: Standalone offline sync status report
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          $ref: "#/components/responses/OfflineSyncStatusResponse"
+  /api/v1/offline-sync/stage:
+    post:
+      summary: Stage one offline sync record in standalone runtime
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OfflineSyncStageRequest"
+      responses:
+        "200":
+          description: Record staged
+  /api/v1/offline-sync/queue:
+    get:
+      summary: Inspect standalone offline sync queue
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Queue state
+  /api/v1/offline-sync/flush:
+    post:
+      summary: Flush standalone offline sync queue
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OfflineSyncFlushRequest"
+      responses:
+        "200":
+          $ref: "#/components/responses/OfflineSyncFlushResponse"
+  /api/v1/offline-sync/approvals:
+    get:
+      summary: Fetch standalone offline sync approval history
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          $ref: "#/components/responses/ApprovalHistoryResponse"
+  /api/v1/offline-sync/operations:
+    get:
+      summary: Fetch durable standalone offline sync operation history
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          $ref: "#/components/responses/OperationHistoryResponse"
+  /api/v1/offline-sync/operations/export:
+    get:
+      summary: Export signed standalone offline sync operation history
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          $ref: "#/components/responses/SignedOfflineSyncExportResponse"
+  /api/v1/offline-sync/operations/evidence-bundle:
+    get:
+      summary: Build evidence bundle from standalone offline sync operation history
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OfflineSyncEvidenceRequest"
+      responses:
+        "200":
+          $ref: "#/components/responses/EvidenceBundleResponse"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  parameters:
+    ElectionId:
+      in: path
+      name: election_id
+      required: true
+      schema:
+        type: string
+  responses:
+    HealthResponse:
+      description: Service is alive
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/HealthStatus"
+    OfflineSyncReadyResponse:
+      description: Runtime readiness and store metadata
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/OfflineSyncReady"
+    ComplianceReportResponse:
+      description: Compliance report with audit-chain and offline-sync posture
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              route:
+                type: string
+              observer_token:
+                type: string
+              report:
+                $ref: "#/components/schemas/ComplianceReport"
+    OfflineSyncFlushResponse:
+      description: Signed manifest and conflict report
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              admin_token:
+                type: string
+              queue_depth:
+                type: integer
+              artifacts:
+                $ref: "#/components/schemas/OfflineSyncArtifacts"
+              manifest_valid:
+                type: boolean
+    ApprovalHistoryResponse:
+      description: Approval history
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              admin_token:
+                type: string
+              approvals:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ApprovalRecord"
+    OperationHistoryResponse:
+      description: Operation history
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              admin_token:
+                type: string
+              operations:
+                type: array
+                items:
+                  $ref: "#/components/schemas/OfflineSyncOperation"
+    SignedOfflineSyncExportResponse:
+      description: Signed operation export
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              admin_token:
+                type: string
+              export:
+                $ref: "#/components/schemas/SignedExport"
+    EvidenceBundleResponse:
+      description: Court-ready evidence bundle
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              admin_token:
+                type: string
+              observer_token:
+                type: string
+              bundle:
+                $ref: "#/components/schemas/EvidenceBundle"
+    OfflineSyncStatusResponse:
+      description: Queue, reconciliation, and evidence posture
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              admin_token:
+                type: string
+              report:
+                $ref: "#/components/schemas/OfflineSyncStatus"
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+        service:
+          type: string
+        phase:
+          type: string
+    TokenVerificationRequest:
+      type: object
+      required: [token]
+      properties:
+        token:
+          type: string
+    CastVoteRequest:
+      type: object
+      required: [ballot_id, election_id, selections, token, device_id]
+      properties:
+        ballot_id:
+          type: string
+        election_id:
+          type: string
+        token:
+          type: string
+        device_id:
+          type: string
+        selections:
+          type: object
+          additionalProperties: true
+    PaperReconcileRequest:
+      type: object
+      required: [election_id, paper_ballots]
+      properties:
+        election_id:
+          type: string
+        paper_ballots:
+          type: array
+          items:
+            type: string
+    PhaseTransitionRequest:
+      type: object
+      required: [election_id, next_phase, approvers]
+      properties:
+        election_id:
+          type: string
+        next_phase:
+          type: string
+        approvers:
+          type: array
+          items:
+            type: string
+    OfflineSyncStageRequest:
+      type: object
+      required: [record]
+      properties:
+        record:
+          type: object
+          additionalProperties: true
+    OfflineSyncFlushRequest:
+      type: object
+      properties:
+        device_id:
+          type: string
+        remote_records:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        approvers:
+          type: array
+          items:
+            type: string
+    OfflineSyncEvidenceRequest:
+      type: object
+      properties:
+        case_id:
+          type: string
+        operation_id:
+          type: string
+        device_id:
+          type: string
+    ApprovalRecord:
+      type: object
+      properties:
+        operation_id:
+          type: string
+        approver:
+          type: string
+        approval_count:
+          type: integer
+        recorded_at:
+          type: string
+          format: date-time
+    SyncConflictDecision:
+      type: object
+      properties:
+        token_hash:
+          type: string
+        winner_created_at:
+          type: string
+          format: date-time
+        discarded_created_at:
+          type: string
+          format: date-time
+        resolution:
+          type: string
+    SyncConflictReport:
+      type: object
+      properties:
+        merged_count:
+          type: integer
+        conflict_count:
+          type: integer
+        decisions:
+          type: array
+          items:
+            $ref: "#/components/schemas/SyncConflictDecision"
+    OfflineSyncManifest:
+      type: object
+      properties:
+        device_id:
+          type: string
+        record_count:
+          type: integer
+        digest:
+          type: string
+        signature:
+          type: string
+    OfflineSyncArtifacts:
+      type: object
+      properties:
+        manifest:
+          $ref: "#/components/schemas/OfflineSyncManifest"
+        conflict_report:
+          $ref: "#/components/schemas/SyncConflictReport"
+    OfflineSyncOperation:
+      type: object
+      properties:
+        operation_id:
+          type: string
+        operator_id:
+          type: string
+        device_id:
+          type: string
+        manifest_digest:
+          type: string
+        manifest_signature:
+          type: string
+        record_count:
+          type: integer
+        conflict_count:
+          type: integer
+        manifest_valid:
+          type: boolean
+        approvals:
+          type: array
+          items:
+            type: string
+        conflict_report:
+          $ref: "#/components/schemas/SyncConflictReport"
+        recorded_at:
+          type: string
+          format: date-time
+    SignedExport:
+      type: object
+      properties:
+        payload:
+          type: string
+        signature:
+          type: string
+    CustodyEvent:
+      type: object
+      properties:
+        actor:
+          type: string
+        action:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+    EvidenceArtifact:
+      type: object
+      properties:
+        artifact_id:
+          type: string
+        kind:
+          type: string
+        service:
+          type: string
+        phase:
+          type: string
+        operations:
+          type: array
+          items:
+            $ref: "#/components/schemas/OfflineSyncOperation"
+        signature:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: true
+    EvidenceBundle:
+      type: object
+      properties:
+        case_id:
+          type: string
+        artifacts:
+          type: array
+          items:
+            $ref: "#/components/schemas/EvidenceArtifact"
+        custody_events:
+          type: array
+          items:
+            $ref: "#/components/schemas/CustodyEvent"
+        verification_statement:
+          type: string
+    ComplianceReport:
+      type: object
+      properties:
+        entry_count:
+          type: integer
+        hash_chain_valid:
+          type: boolean
+        latest_event:
+          type: string
+          nullable: true
+        offline_sync_operation_count:
+          type: integer
+        offline_sync_conflict_total:
+          type: integer
+        latest_offline_sync_operation_id:
+          type: string
+          nullable: true
+        latest_evidence_event:
+          type: string
+          nullable: true
+    OfflineSyncReady:
+      type: object
+      properties:
+        status:
+          type: string
+        service:
+          type: string
+        phase:
+          type: string
+        queue_depth:
+          type: integer
+        approval_store:
+          type: string
+        operation_store:
+          type: string
+    OfflineSyncStatus:
+      type: object
+      properties:
+        status:
+          type: string
+        service:
+          type: string
+        phase:
+          type: string
+        queue_depth:
+          type: integer
+        approval_store:
+          type: string
+        operation_store:
+          type: string
+        approval_history_count:
+          type: integer
+        latest_approval:
+          $ref: "#/components/schemas/ApprovalRecord"
+        operation_history_count:
+          type: integer
+        offline_sync_conflict_total:
+          type: integer
+        latest_operation:
+          $ref: "#/components/schemas/OfflineSyncOperation"
+        latest_audit_event:
+          type: string
+          nullable: true
+        latest_evidence_event:
+          type: string
+          nullable: true
