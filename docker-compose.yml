@@ -1,0 +1,48 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: securevote
+      POSTGRES_USER: securevote
+      POSTGRES_PASSWORD: securevote
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+
+  app:
+    build: .
+    depends_on:
+      - postgres
+      - redis
+      - rabbitmq
+    env_file:
+      - .env.example
+    command: ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+    ports:
+      - "8000:8000"
+
+  offline-sync-service:
+    build: .
+    depends_on:
+      - postgres
+      - redis
+      - rabbitmq
+    env_file:
+      - .env.example
+    environment:
+      OFFLINE_SYNC_RUNTIME_DIR: data/runtime/offline-sync-service
+    command: ["python", "manage.py", "run-offline-sync", "0.0.0.0:8100"]
+    ports:
+      - "8100:8100"

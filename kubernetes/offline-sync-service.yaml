@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: offline-sync-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: offline-sync-service
+  template:
+    metadata:
+      labels:
+        app: offline-sync-service
+    spec:
+      containers:
+        - name: offline-sync-service
+          image: securevote/offline-sync-service:phase1
+          command: ["python", "manage.py", "run-offline-sync", "0.0.0.0:8100"]
+          env:
+            - name: OFFLINE_SYNC_RUNTIME_DIR
+              value: /var/lib/securevote/offline-sync
+          ports:
+            - containerPort: 8100
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8100
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8100
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          volumeMounts:
+            - name: offline-sync-runtime
+              mountPath: /var/lib/securevote/offline-sync
+      volumes:
+        - name: offline-sync-runtime
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: offline-sync-service
+spec:
+  selector:
+    app: offline-sync-service
+  ports:
+    - name: http
+      port: 8100
+      targetPort: 8100

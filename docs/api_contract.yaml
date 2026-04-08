@@ -1,0 +1,48 @@
+openapi: 3.0.3
+info:
+  title: SecureVote PNG API
+  version: 1.0.0
+paths:
+  /api/v1/vote/verify-token:
+    post:
+      summary: Validate an externally issued voting token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token:
+                  type: string
+      responses:
+        "200":
+          description: Token accepted
+  /api/v1/vote/cast:
+    post:
+      summary: Submit an encrypted vote envelope
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ballot_id, election_id, selections, token, device_id]
+      responses:
+        "200":
+          description: Vote accepted
+        "409":
+          description: Replay or rate-limit rejection
+  /api/v1/vote/public-result:
+    get:
+      summary: Fetch public result commitment
+      responses:
+        "200":
+          description: Public result hash
+  /api/v1/nid/verify:
+    post:
+      summary: Gateway route to external NID verification service
+      responses:
+        "200":
+          description: Upstream verification response

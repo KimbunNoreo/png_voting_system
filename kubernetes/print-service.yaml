@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: print-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: print-service
+  template:
+    metadata:
+      labels:
+        app: print-service
+    spec:
+      containers:
+        - name: print-service
+          image: securevote/print-service:phase1
+          ports:
+            - containerPort: 8093

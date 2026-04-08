@@ -1,0 +1,1 @@
+"""Voting API v2 namespace reserved for future expansion."""

@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: securevote-phase1
+data:
+  phase: "phase1"
+  ai_enabled: "false"
+  homomorphic_enabled: "false"
+  zkp_enabled: "false"
