@@ -8,6 +8,7 @@ class EmergencyFreezeMiddleware:
         self.frozen = frozen
 
     def process(self, request: dict[str, object]) -> dict[str, object]:
-        if self.frozen and str(request.get("path", "")).startswith("/api/v1/vote/"):
+        path = str(request.get("path", ""))
+        if self.frozen and (path.startswith("/api/v1/vote/") or path.startswith("/api/v2/vote/")):
             raise PermissionError("Voting is frozen")
         return request

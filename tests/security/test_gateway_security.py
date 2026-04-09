@@ -141,6 +141,18 @@ class GatewaySecurityTests(unittest.TestCase):
                     "body": "{}",
                 }
             )
+        with self.assertRaises(PermissionError):
+            app.handle_request(
+                {
+                    "path": "/api/v2/vote/cast",
+                    "headers": {"Authorization": "Bearer token"},
+                    "is_tls": True,
+                    "client_certificate_verified": True,
+                    "client_certificate": build_client_certificate(),
+                    "ip": "127.0.0.1",
+                    "body": "{}",
+                }
+            )
 
     def test_vote_routes_require_bearer_token_format(self) -> None:
         app = GatewayApplication(router=GatewayRouter())
@@ -367,6 +379,25 @@ class GatewaySecurityTests(unittest.TestCase):
                 "nbf": 1111111111,
             },
         )
+
+    def test_gateway_overrides_untrusted_client_id_from_token(self) -> None:
+        app = GatewayApplication(
+            router=GatewayRouter(),
+            auth_proxy=AuthProxy(token_validator=StubTokenValidator(claims={"jti": "vote-token-9"})),
+        )
+        result = app.handle_request(
+            {
+                "path": "/api/v1/vote/cast",
+                "headers": {"Authorization": "Bearer valid-token"},
+                "client_id": "attacker-supplied-client-id",
+                "is_tls": True,
+                "client_certificate_verified": True,
+                "client_certificate": build_client_certificate(),
+                "ip": "127.0.0.1",
+                "body": "{}",
+            }
+        )
+        self.assertEqual(result["request"]["client_id"], "token:vote-token-9")
 
     def test_public_result_route_rejects_non_get_methods(self) -> None:
         app = GatewayApplication(router=GatewayRouter())

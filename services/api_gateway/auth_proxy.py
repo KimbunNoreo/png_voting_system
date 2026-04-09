@@ -56,6 +56,7 @@ class AuthProxy:
                 "token_id": token_id,
                 "claims": sanitized_claims,
             }
-            request.setdefault("client_id", f"token:{token_id}")
+            # Never trust caller-supplied client identity on protected routes.
+            request["client_id"] = f"token:{token_id}"
         request["auth_checked"] = True
         return request
