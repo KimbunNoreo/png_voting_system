@@ -1,6 +1,6 @@
 PYTHON ?= python
 
-.PHONY: run run-offline-sync test lint check-phase1
+.PHONY: run run-offline-sync test lint check-phase1 readiness readiness-quick readiness-full
 
 run:
 	$(PYTHON) manage.py runserver
@@ -16,3 +16,12 @@ lint:
 
 check-phase1:
 	$(PYTHON) manage.py check-phase1
+
+readiness:
+	$(PYTHON) manage.py readiness-check core
+
+readiness-quick:
+	$(PYTHON) manage.py readiness-check quick
+
+readiness-full:
+	$(PYTHON) manage.py readiness-check full

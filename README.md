@@ -24,6 +24,7 @@ Phase 1 implementation scaffold for a zero-trust, offline-first electronic votin
 ```bash
 python manage.py show-config
 python manage.py check-phase1
+python manage.py readiness-check core
 python manage.py runserver 127.0.0.1:8000
 python manage.py run-offline-sync 127.0.0.1:8100
 python -m unittest
@@ -37,9 +38,16 @@ docker-compose up --build
 - Shared endpoint inventory:
   - `python manage.py list-endpoints`
   - `python manage.py list-endpoints --markdown`
+- Readiness profiles:
+  - `python manage.py readiness-check quick`
+  - `python manage.py readiness-check core`
+  - `python manage.py readiness-check full`
 - Make targets:
   - `make run`
   - `make run-offline-sync`
+  - `make readiness`
+  - `make readiness-quick`
+  - `make readiness-full`
 
 ## Offline Sync Service
 

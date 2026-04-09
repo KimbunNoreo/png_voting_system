@@ -13,6 +13,7 @@ from services.endpoint_inventory import (
     render_inventory_lines,
     render_inventory_markdown,
 )
+from services.readiness import run_readiness_suite
 from services.api_gateway.local_runtime import run_local_demo_server
 from services.offline_sync_service.runtime import run_offline_sync_server
 
@@ -31,6 +32,26 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         print("phase-misconfigured")
         return 1
+    if command == "readiness-check":
+        profile = args[1] if len(args) > 1 else "core"
+        try:
+            result = run_readiness_suite(profile)
+        except ValueError as exc:
+            print(str(exc))
+            return 2
+        print(
+            json.dumps(
+                {
+                    "profile": result.profile,
+                    "tests_run": result.tests_run,
+                    "failures": result.failures,
+                    "errors": result.errors,
+                    "successful": result.successful,
+                },
+                indent=2,
+            )
+        )
+        return 0 if result.successful else 1
     if command == "list-endpoints":
         markdown = "--markdown" in args[1:]
         filtered_args = [arg for arg in args[1:] if arg != "--markdown"]

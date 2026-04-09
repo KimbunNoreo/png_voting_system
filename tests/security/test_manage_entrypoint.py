@@ -37,6 +37,21 @@ class ManageEntrypointTests(unittest.TestCase):
         self.assertIn("### Offline Sync Runtime", output)
         self.assertIn("- `GET /api/v1/offline-sync/operations/export`: Operations Export", output)
 
+    def test_readiness_check_dispatches_profile_runner(self) -> None:
+        with (
+            patch("manage.run_readiness_suite") as run_readiness_suite,
+            patch("sys.stdout", new_callable=io.StringIO) as stdout,
+        ):
+            run_readiness_suite.return_value = type(
+                "Result",
+                (),
+                {"profile": "quick", "tests_run": 10, "failures": 0, "errors": 0, "successful": True},
+            )()
+            self.assertEqual(manage.main(["readiness-check", "quick"]), 0)
+        output = stdout.getvalue()
+        self.assertIn('"profile": "quick"', output)
+        self.assertIn('"successful": true', output)
+
 
 if __name__ == "__main__":
     unittest.main()
