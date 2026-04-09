@@ -200,6 +200,41 @@ class OfflineSyncRuntimeTests(unittest.TestCase):
             "offline_sync_evidence_bundle_generated",
         )
 
+    def test_offline_sync_runtime_accepts_query_params_for_browser_get_routes(self) -> None:
+        runtime = self.build_runtime()
+        runtime.dispatch(
+            "POST",
+            "/api/v1/offline-sync/stage",
+            headers={"Authorization": "Bearer admin-operator-query"},
+            body=json.dumps({"record": {"token_hash": "tq1", "created_at": "2026-04-08T00:00:00Z"}}),
+        )
+        runtime.dispatch(
+            "POST",
+            "/api/v1/offline-sync/flush",
+            headers={"Authorization": "Bearer admin-operator-query"},
+            body=json.dumps(
+                {
+                    "device_id": "device-1",
+                    "remote_records": [{"token_hash": "tq1", "created_at": "2026-04-08T00:01:00Z"}],
+                    "approvers": ["official-1", "official-2"],
+                }
+            ),
+        )
+        status_code, export_payload = runtime.dispatch(
+            "GET",
+            "/api/v1/offline-sync/operations/export?device_id=device-1",
+            headers={"Authorization": "Bearer admin-operator-query"},
+        )
+        self.assertEqual(status_code, 200)
+        self.assertIn("signature", export_payload["export"])
+        status_code, bundle_payload = runtime.dispatch(
+            "GET",
+            "/api/v1/offline-sync/operations/evidence-bundle?case_id=browser-case&device_id=device-1",
+            headers={"Authorization": "Bearer admin-operator-query"},
+        )
+        self.assertEqual(status_code, 200)
+        self.assertEqual(bundle_payload["bundle"]["case_id"], "browser-case")
+
     def test_offline_sync_runtime_status_reports_recent_activity(self) -> None:
         runtime = self.build_runtime()
         runtime.dispatch(
@@ -268,6 +303,52 @@ class OfflineSyncRuntimeTests(unittest.TestCase):
         runtime = self.build_runtime()
         with self.assertRaises(PermissionError):
             runtime.dispatch("GET", "/api/v1/offline-sync/queue", headers={"Authorization": "Bearer demo-user"})
+        self.assertEqual(runtime.dependencies.audit_logger.entries()[-1].event_type, "offline_sync_auth_rejected")
+        self.assertEqual(
+            runtime.dependencies.audit_logger.entries()[-1].payload["reason"],
+            "missing_admin_bearer_token",
+        )
+
+    def test_offline_sync_runtime_rejects_admin_token_with_invalid_operator_id(self) -> None:
+        runtime = self.build_runtime()
+        with self.assertRaises(PermissionError):
+            runtime.dispatch(
+                "GET",
+                "/api/v1/offline-sync/queue",
+                headers={"Authorization": "Bearer admin-OPERATOR!"},
+            )
+        self.assertEqual(runtime.dependencies.audit_logger.entries()[-1].event_type, "offline_sync_auth_rejected")
+        self.assertEqual(
+            runtime.dependencies.audit_logger.entries()[-1].payload["reason"],
+            "invalid_admin_operator_id",
+        )
+
+    def test_offline_sync_runtime_rejects_unknown_device_id_for_flush(self) -> None:
+        runtime = self.build_runtime()
+        runtime.dispatch(
+            "POST",
+            "/api/v1/offline-sync/stage",
+            headers={"Authorization": "Bearer admin-operator-unknown-device"},
+            body=json.dumps({"record": {"token_hash": "tx1", "created_at": "2026-04-08T00:00:00Z"}}),
+        )
+        with self.assertRaises(ValueError):
+            runtime.dispatch(
+                "POST",
+                "/api/v1/offline-sync/flush",
+                headers={"Authorization": "Bearer admin-operator-unknown-device"},
+                body=json.dumps(
+                    {
+                        "device_id": "device-does-not-exist",
+                        "remote_records": [{"token_hash": "tx1", "created_at": "2026-04-08T00:01:00Z"}],
+                        "approvers": ["official-1", "official-2"],
+                    }
+                ),
+            )
+        self.assertEqual(runtime.dependencies.audit_logger.entries()[-1].event_type, "offline_sync_device_rejected")
+        self.assertEqual(
+            runtime.dependencies.audit_logger.entries()[-1].payload["reason"],
+            "unknown_device_id",
+        )
 
 
 if __name__ == "__main__":

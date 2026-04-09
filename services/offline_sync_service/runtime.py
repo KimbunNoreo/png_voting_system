@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
+import re
 from typing import Any
+from urllib.parse import parse_qsl, urlparse
 
 from config import get_settings
 from legal_evidence import generate_offline_sync_evidence_bundle
@@ -17,6 +19,8 @@ from services.voting_service.crypto.phase1_standard import Phase1StandardCrypto
 
 class OfflineSyncServiceRuntime:
     """Minimal HTTP runtime for operator-facing offline sync workflows."""
+
+    _OPERATOR_ID_PATTERN = re.compile(r"^[a-z0-9][a-z0-9_-]{1,63}$")
 
     def __init__(
         self,
@@ -51,12 +55,55 @@ class OfflineSyncServiceRuntime:
             raise ValueError("JSON request body must be an object")
         return parsed
 
-    def _admin_token(self, headers: dict[str, str]) -> str:
+    def _admin_context(self, headers: dict[str, str], *, method: str, path: str) -> tuple[str, str]:
         authorization = headers.get("Authorization", "")
+        if not isinstance(authorization, str):
+            self._audit(
+                "offline_sync_auth_rejected",
+                {
+                    "reason": "authorization_header_not_string",
+                    "method": method,
+                    "path": path,
+                },
+            )
+            raise PermissionError("Authorization header must be a string")
         scheme, _, token = authorization.partition(" ")
         if scheme != "Bearer" or not token.startswith("admin-"):
+            self._audit(
+                "offline_sync_auth_rejected",
+                {
+                    "reason": "missing_admin_bearer_token",
+                    "method": method,
+                    "path": path,
+                },
+            )
             raise PermissionError("Administrator token is required")
-        return token
+        operator_id = token.removeprefix("admin-").strip()
+        if not operator_id or not self._OPERATOR_ID_PATTERN.fullmatch(operator_id):
+            self._audit(
+                "offline_sync_auth_rejected",
+                {
+                    "reason": "invalid_admin_operator_id",
+                    "method": method,
+                    "path": path,
+                },
+            )
+            raise PermissionError("Administrator token contains invalid operator id")
+        return token, operator_id
+
+    def _device_keypair(self, device_id: str, *, operator_id: str, path: str) -> tuple[str, str]:
+        if device_id not in self.device_private_keys or device_id not in self.device_public_keys:
+            self._audit(
+                "offline_sync_device_rejected",
+                {
+                    "reason": "unknown_device_id",
+                    "operator_id": operator_id,
+                    "path": path,
+                    "device_id": device_id,
+                },
+            )
+            raise ValueError(f"Unknown device_id: {device_id}")
+        return self.device_private_keys[device_id], self.device_public_keys[device_id]
 
     def _audit(self, event_type: str, payload: dict[str, object]) -> None:
         if self.dependencies.audit_logger is not None:
@@ -112,74 +159,85 @@ class OfflineSyncServiceRuntime:
         }
 
     def dispatch(self, method: str, path: str, headers: dict[str, str], body: str = "") -> tuple[int, dict[str, object]]:
-        if path == "/health":
+        parsed = urlparse(path)
+        normalized_path = parsed.path
+        query = dict(parse_qsl(parsed.query, keep_blank_values=True))
+
+        if normalized_path == "/health":
             return 200, {"status": "ok", "service": "offline_sync_service", "phase": "phase1"}
-        if path == "/ready":
+        if normalized_path == "/ready":
             return 200, self.readiness()
 
-        admin_token = self._admin_token(headers)
+        _, operator_id = self._admin_context(headers, method=method, path=normalized_path)
         payload = self._parse_body(body)
 
-        if method == "POST" and path == "/api/v1/offline-sync/stage":
+        if method == "POST" and normalized_path == "/api/v1/offline-sync/stage":
             record = payload.get("record")
             if not isinstance(record, dict):
                 raise ValueError("record must be an object")
-            result = self.dependencies.operator_api.stage_record(record, operator_id=admin_token.removeprefix("admin-"))
+            result = self.dependencies.operator_api.stage_record(record, operator_id=operator_id)
             return 200, {
-                "admin_token": admin_token.removeprefix("admin-"),
+                "admin_token": operator_id,
                 "queue_depth": result["queue_depth"],
                 "record": result["record"],
             }
 
-        if method == "GET" and path == "/api/v1/offline-sync/queue":
-            result = self.dependencies.operator_api.queue_status(operator_id=admin_token.removeprefix("admin-"))
+        if method == "GET" and normalized_path == "/api/v1/offline-sync/queue":
+            result = self.dependencies.operator_api.queue_status(operator_id=operator_id)
             return 200, {
-                "admin_token": admin_token.removeprefix("admin-"),
+                "admin_token": operator_id,
                 "queue_depth": result["queue_depth"],
                 "queued_records": result["queued_records"],
             }
 
-        if method == "POST" and path == "/api/v1/offline-sync/flush":
+        if method == "POST" and normalized_path == "/api/v1/offline-sync/flush":
             device_id = str(payload.get("device_id", "device-1"))
             remote_records = payload.get("remote_records", [])
             approvers = tuple(str(value) for value in payload.get("approvers", ()))
             if not isinstance(remote_records, list):
                 raise ValueError("remote_records must be a list")
-            private_key_pem = self.device_private_keys[device_id]
-            public_key_pem = self.device_public_keys[device_id]
+            private_key_pem, public_key_pem = self._device_keypair(
+                device_id,
+                operator_id=operator_id,
+                path=normalized_path,
+            )
             result = self.dependencies.operator_api.flush(
                 remote_records=remote_records,
                 device_id=device_id,
                 private_key_pem=private_key_pem,
                 public_key_pem=public_key_pem,
-                operator_id=admin_token.removeprefix("admin-"),
+                operator_id=operator_id,
                 approvers=approvers,
             )
             return 200, {
-                "admin_token": admin_token.removeprefix("admin-"),
+                "admin_token": operator_id,
                 "queue_depth": result["queue_depth"],
                 "artifacts": result["artifacts"],
                 "manifest_valid": result["manifest_valid"],
             }
 
-        if method == "GET" and path == "/api/v1/offline-sync/approvals":
-            operation_id = str(payload.get("operation_id", "")) or None
+        if method == "GET" and normalized_path == "/api/v1/offline-sync/approvals":
+            operation_id = str(query.get("operation_id") or payload.get("operation_id", "")) or None
             return 200, {
-                "admin_token": admin_token.removeprefix("admin-"),
+                "admin_token": operator_id,
                 "approvals": self.dependencies.operator_api.approval_history(operation_id),
             }
 
-        if method == "GET" and path == "/api/v1/offline-sync/operations":
-            operation_id = str(payload.get("operation_id", "")) or None
+        if method == "GET" and normalized_path == "/api/v1/offline-sync/operations":
+            operation_id = str(query.get("operation_id") or payload.get("operation_id", "")) or None
             return 200, {
-                "admin_token": admin_token.removeprefix("admin-"),
+                "admin_token": operator_id,
                 "operations": self.dependencies.operator_api.operation_history(operation_id),
             }
 
-        if method == "GET" and path == "/api/v1/offline-sync/operations/export":
-            operation_id = str(payload.get("operation_id", "")) or None
-            device_id = str(payload.get("device_id", "device-1"))
-            private_key_pem = self.device_private_keys[device_id]
+        if method == "GET" and normalized_path == "/api/v1/offline-sync/operations/export":
+            operation_id = str(query.get("operation_id") or payload.get("operation_id", "")) or None
+            device_id = str(query.get("device_id") or payload.get("device_id", "device-1"))
+            private_key_pem, _ = self._device_keypair(
+                device_id,
+                operator_id=operator_id,
+                path=normalized_path,
+            )
             operations = self.dependencies.operator_api.operation_history(operation_id)
             export = create_signed_offline_sync_export(
                 operations,
@@ -188,33 +246,37 @@ class OfflineSyncServiceRuntime:
             self._audit(
                 "offline_sync_operation_exported",
                 {
-                    "operator_id": admin_token.removeprefix("admin-"),
+                    "operator_id": operator_id,
                     "operation_id": operation_id or "all",
                     "device_id": device_id,
                     "operation_count": len(operations),
                 },
             )
             return 200, {
-                "admin_token": admin_token.removeprefix("admin-"),
+                "admin_token": operator_id,
                 "export": export,
             }
 
-        if method == "GET" and path == "/api/v1/offline-sync/operations/evidence-bundle":
-            operation_id = str(payload.get("operation_id", "")) or None
-            device_id = str(payload.get("device_id", "device-1"))
-            case_id = str(payload.get("case_id", "offline-sync-review"))
-            private_key_pem = self.device_private_keys[device_id]
+        if method == "GET" and normalized_path == "/api/v1/offline-sync/operations/evidence-bundle":
+            operation_id = str(query.get("operation_id") or payload.get("operation_id", "")) or None
+            device_id = str(query.get("device_id") or payload.get("device_id", "device-1"))
+            case_id = str(query.get("case_id") or payload.get("case_id", "offline-sync-review"))
+            private_key_pem, _ = self._device_keypair(
+                device_id,
+                operator_id=operator_id,
+                path=normalized_path,
+            )
             operations = self.dependencies.operator_api.operation_history(operation_id)
             bundle = generate_offline_sync_evidence_bundle(
                 case_id=case_id,
                 operations=operations,
-                actor=admin_token.removeprefix("admin-"),
+                actor=operator_id,
                 signing_key_pem=private_key_pem,
             )
             self._audit(
                 "offline_sync_evidence_bundle_generated",
                 {
-                    "operator_id": admin_token.removeprefix("admin-"),
+                    "operator_id": operator_id,
                     "operation_id": operation_id or "all",
                     "device_id": device_id,
                     "case_id": case_id,
@@ -222,17 +284,17 @@ class OfflineSyncServiceRuntime:
                 },
             )
             return 200, {
-                "admin_token": admin_token.removeprefix("admin-"),
+                "admin_token": operator_id,
                 "bundle": bundle.to_dict(),
             }
 
-        if method == "GET" and path == "/api/v1/offline-sync/status":
+        if method == "GET" and normalized_path == "/api/v1/offline-sync/status":
             return 200, {
-                "admin_token": admin_token.removeprefix("admin-"),
+                "admin_token": operator_id,
                 "report": self.status_report(),
             }
 
-        raise ValueError(f"No offline sync handler for path: {path}")
+        raise ValueError(f"No offline sync handler for path: {normalized_path}")
 
 
 def run_offline_sync_server(host: str = "127.0.0.1", port: int = 8100) -> None:
@@ -293,3 +355,4 @@ def run_offline_sync_server(host: str = "127.0.0.1", port: int = 8100) -> None:
         pass
     finally:
         server.server_close()
+    _OPERATOR_ID_PATTERN = re.compile(r"^[a-z0-9][a-z0-9_-]{1,63}$")

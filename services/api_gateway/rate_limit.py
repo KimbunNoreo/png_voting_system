@@ -96,6 +96,11 @@ class SlidingWindowRateLimiter:
                 "token": self.settings.vote_token_requests_per_minute,
                 "device": self.settings.vote_device_requests_per_minute,
             }
+        if bucket == "vote_public":
+            return {
+                **base_limits,
+                "ip": self.settings.vote_public_requests_per_minute,
+            }
         return base_limits
 
     def _build_scopes(self, request: dict[str, object]) -> list[tuple[str, str]]:

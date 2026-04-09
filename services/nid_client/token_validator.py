@@ -17,6 +17,27 @@ class TokenValidator:
         self.public_key = public_key
         self.issuer = issuer
         self.audience = audience
+        self._untrusted_allowed_algorithms = ("RS256", "HS256")
+
+    def _decode_untrusted(self, token: str, options: dict[str, Any]) -> dict[str, Any]:
+        try:
+            header = jwt.get_unverified_header(token)
+        except jwt.PyJWTError as exc:
+            raise NIDValidationError(f"Invalid NID token header: {exc}") from exc
+        algorithm = str(header.get("alg", "")).upper()
+        if algorithm not in self._untrusted_allowed_algorithms:
+            raise NIDValidationError(
+                "Unsupported token algorithm for untrusted validation mode"
+            )
+        decode_kwargs: dict[str, Any] = {
+            "options": {"verify_signature": False, **options},
+            "algorithms": list(self._untrusted_allowed_algorithms),
+        }
+        if self.issuer:
+            decode_kwargs["issuer"] = self.issuer
+        if self.audience:
+            decode_kwargs["audience"] = self.audience
+        return jwt.decode(token, **decode_kwargs)
 
     def decode(self, token: str) -> dict[str, Any]:
         options = {"require": ["exp", "iat", "jti"]}
@@ -30,7 +51,7 @@ class TokenValidator:
                     audience=self.audience,
                     options=options,
                 )
-            return jwt.decode(token, options={"verify_signature": False, **options}, algorithms=["RS256"])
+            return self._decode_untrusted(token, options)
         except jwt.PyJWTError as exc:
             raise NIDValidationError(f"Invalid NID token: {exc}") from exc
 

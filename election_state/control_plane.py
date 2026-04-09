@@ -114,6 +114,9 @@ class SQLiteElectionControlStore:
 class ElectionControlPlane:
     """Approval-aware election control plane with durable phase/freeze state."""
 
+    MAX_ELECTION_ID_LENGTH = 128
+    MAX_REASON_LENGTH = 512
+
     def __init__(
         self,
         initial_state: ElectionControlSnapshot,
@@ -146,6 +149,7 @@ class ElectionControlPlane:
         )
 
     def get_state(self, election_id: str) -> ElectionControlSnapshot:
+        election_id = self._validate_election_id(election_id)
         snapshot = self.store.load(election_id)
         if snapshot is None:
             raise ValueError("Election control state not found")
@@ -155,8 +159,40 @@ class ElectionControlPlane:
         if self.audit_logger is not None:
             self.audit_logger.append(event_type, payload)
 
+    def _validate_election_id(self, election_id: str) -> str:
+        normalized = election_id.strip()
+        if not normalized:
+            raise ValueError("Election ID is required")
+        if len(normalized) > self.MAX_ELECTION_ID_LENGTH:
+            raise ValueError("Election ID is too long")
+        return normalized
+
+    def _validate_reason(self, reason: str, *, operation: str) -> str:
+        normalized = reason.strip()
+        if not normalized:
+            raise ValueError(f"{operation} reason is required")
+        if len(normalized) > self.MAX_REASON_LENGTH:
+            raise ValueError(f"{operation} reason is too long")
+        return normalized
+
+    @staticmethod
+    def _normalize_approvers(approvers: tuple[str, ...]) -> tuple[str, ...]:
+        normalized: list[str] = []
+        seen: set[str] = set()
+        for approver in approvers:
+            value = approver.strip()
+            if not value:
+                continue
+            if value in seen:
+                continue
+            normalized.append(value)
+            seen.add(value)
+        return tuple(normalized)
+
     def transition_phase(self, election_id: str, next_phase: str, approvers: tuple[str, ...]) -> PhaseChangeAuditRecord:
-        if len(set(approvers)) < required_approvals("phase_change"):
+        election_id = self._validate_election_id(election_id)
+        unique_approvers = self._normalize_approvers(approvers)
+        if len(unique_approvers) < required_approvals("phase_change"):
             raise ValueError("Phase changes require at least two unique approvers")
         state = self.get_state(election_id)
         machine = ElectionStateMachine(election_id=election_id, phase=state.phase, freeze_active=state.freeze_active)
@@ -169,51 +205,57 @@ class ElectionControlPlane:
             freeze_reason=state.freeze_reason,
         )
         self.store.save(snapshot)
-        record = self.phase_auditor.record(election_id, previous_phase, machine.phase, approvers)
+        record = self.phase_auditor.record(election_id, previous_phase, machine.phase, unique_approvers)
         self._log(
             "election_phase_changed",
             {
                 "election_id": election_id,
                 "previous_phase": previous_phase,
                 "next_phase": machine.phase,
-                "approvals": len(set(approvers)),
+                "approvals": len(unique_approvers),
             },
         )
         return record
 
     def activate_freeze(self, election_id: str, reason: str, approvers: tuple[str, ...]) -> ElectionControlSnapshot:
-        if not freeze_allowed(approvers):
+        election_id = self._validate_election_id(election_id)
+        normalized_reason = self._validate_reason(reason, operation="Freeze activation")
+        unique_approvers = self._normalize_approvers(approvers)
+        if not freeze_allowed(unique_approvers):
             raise ValueError("Global freeze requires at least three unique approvers")
         state = self.get_state(election_id)
         snapshot = ElectionControlSnapshot(
             election_id=election_id,
             phase=state.phase,
             freeze_active=True,
-            freeze_reason=reason,
+            freeze_reason=normalized_reason,
         )
         self.store.save(snapshot)
         self._log(
             "control_plane_freeze_activated",
-            {"election_id": election_id, "reason": reason, "approvals": len(set(approvers))},
+            {"election_id": election_id, "reason": normalized_reason, "approvals": len(unique_approvers)},
         )
         return snapshot
 
     def clear_freeze(self, election_id: str, reason: str, approvers: tuple[str, ...]) -> ElectionControlSnapshot:
-        if not freeze_allowed(approvers):
+        election_id = self._validate_election_id(election_id)
+        normalized_reason = self._validate_reason(reason, operation="Freeze clearance")
+        unique_approvers = self._normalize_approvers(approvers)
+        if not freeze_allowed(unique_approvers):
             raise ValueError("Freeze clearance requires at least three unique approvers")
         state = self.get_state(election_id)
         snapshot = ElectionControlSnapshot(
             election_id=election_id,
             phase=state.phase,
             freeze_active=False,
-            freeze_reason=reason,
+            freeze_reason=normalized_reason,
         )
         self.store.save(snapshot)
         self._log(
             "control_plane_freeze_cleared",
-            {"election_id": election_id, "reason": reason, "approvals": len(set(approvers))},
+            {"election_id": election_id, "reason": normalized_reason, "approvals": len(unique_approvers)},
         )
         return snapshot
 
     def phase_history(self, election_id: str) -> list[PhaseChangeAuditRecord]:
-        return self.phase_auditor.history(election_id)
+        return self.phase_auditor.history(self._validate_election_id(election_id))

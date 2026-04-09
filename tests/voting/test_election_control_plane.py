@@ -61,6 +61,35 @@ class ElectionControlPlaneTests(unittest.TestCase):
             if database_path.exists():
                 database_path.unlink()
 
+    def test_transition_phase_deduplicates_approvers_for_audit(self) -> None:
+        control_plane = ElectionControlPlane(
+            initial_state=ElectionControlSnapshot("e1", "registration", False, ""),
+            audit_logger=WORMLogger(),
+        )
+        record = control_plane.transition_phase("e1", "verification", ("official-1", "official-1", "official-2"))
+        self.assertEqual(record.approvals, 2)
+        self.assertEqual(record.changed_by, ("official-1", "official-2"))
+
+    def test_freeze_rejects_blank_reason(self) -> None:
+        control_plane = ElectionControlPlane(
+            initial_state=ElectionControlSnapshot("e1", "verification", False, ""),
+            audit_logger=WORMLogger(),
+        )
+        with self.assertRaises(ValueError):
+            control_plane.activate_freeze("e1", "   ", ("official-1", "official-2", "official-3"))
+
+    def test_freeze_rejects_more_than_five_unique_approvers(self) -> None:
+        control_plane = ElectionControlPlane(
+            initial_state=ElectionControlSnapshot("e1", "verification", False, ""),
+            audit_logger=WORMLogger(),
+        )
+        with self.assertRaises(ValueError):
+            control_plane.activate_freeze(
+                "e1",
+                "security incident",
+                ("official-1", "official-2", "official-3", "official-4", "official-5", "official-6"),
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

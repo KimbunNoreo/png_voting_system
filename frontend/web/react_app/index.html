@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SecureVote PNG Console</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <p class="eyebrow">Phase 1</p>
+          <h1>SecureVote PNG</h1>
+          <p class="muted">Simple frontend for local voting, observer review, and offline sync operations.</p>
+        </div>
+
+        <section class="panel compact">
+          <label for="gatewayBaseUrl">Gateway Base URL</label>
+          <input id="gatewayBaseUrl" type="text" value="http://127.0.0.1:8000" />
+          <label for="offlineSyncBaseUrl">Offline Sync Base URL</label>
+          <input id="offlineSyncBaseUrl" type="text" value="http://127.0.0.1:8100" />
+          <div class="target-legend">
+            <span class="service-chip gateway">Gateway</span>
+            <span class="service-chip offline">Offline Sync</span>
+            <span class="service-chip mixed">Mixed</span>
+          </div>
+        </section>
+
+        <section class="panel compact">
+          <h2>Quick Tokens</h2>
+          <button data-fill="voter">Fill Voter Demo</button>
+          <button data-fill="observer">Fill Observer Demo</button>
+          <button data-fill="admin">Fill Admin Demo</button>
+        </section>
+      </aside>
+
+      <main class="content">
+        <header class="hero">
+          <div>
+            <p class="eyebrow">Operator Console</p>
+            <h2>Run the local system without touching raw curl requests</h2>
+            <p class="muted">This frontend targets the currently implemented Phase 1 gateway and offline sync runtimes.</p>
+            <div class="actions wrap hero-actions">
+              <button type="button" id="runScenarioButton">Run Demo Scenario</button>
+              <button type="button" id="openHelpButton">Help</button>
+            </div>
+          </div>
+          <div class="status-card">
+            <button id="healthCheckButton">Check Runtime Health</button>
+            <pre id="healthOutput" class="output small">Health checks will appear here.</pre>
+          </div>
+        </header>
+
+        <section class="panel scenario-panel">
+          <div class="history-header">
+            <h3>Scenario Output</h3>
+            <div class="actions">
+              <button type="button" id="diffBadge" class="diff-badge neutral" title="Jump to diff panel">No Data</button>
+              <button type="button" id="exportScenarioButton">Export Scenario Report</button>
+              <button type="button" id="replayScenarioButton">Replay Imported Scenario</button>
+            </div>
+          </div>
+          <p class="shortcut-hint">
+            Shortcuts: <code>r</code> run scenario, <code>c</code> copy diff, <code>d</code> download diff, <code>h</code>
+            health check
+          </p>
+          <div class="scenario-controls">
+            <label for="scenarioProfile">Scenario Profile</label>
+            <select id="scenarioProfile">
+              <option value="smoke">Smoke Check</option>
+              <option value="full" selected>Full Evidence Run</option>
+            </select>
+          </div>
+          <div class="scenario-controls">
+            <label for="importScenarioFile">Import Scenario JSON</label>
+            <input id="importScenarioFile" type="file" accept="application/json,.json" />
+          </div>
+          <pre id="scenarioBaseline" class="output small">No imported scenario baseline loaded.</pre>
+          <section class="scenario-diff" id="scenarioDiffPanel">
+            <div class="history-header">
+              <h4>Baseline vs Replay</h4>
+              <div class="actions">
+                <button type="button" id="copyDiffButton">Copy Diff Summary</button>
+                <button type="button" id="downloadDiffButton">Download Diff JSON</button>
+              </div>
+            </div>
+            <div class="scenario-diff-grid">
+              <div class="scenario-diff-head">Field</div>
+              <div class="scenario-diff-head">Baseline</div>
+              <div class="scenario-diff-head">Replay</div>
+              <div class="scenario-diff-head">Status</div>
+            </div>
+            <div id="scenarioDiffRows" class="scenario-diff-grid">
+              <div class="scenario-diff-empty">Run a replay to compare results.</div>
+            </div>
+          </section>
+          <pre id="scenarioOutput" class="output small">Demo scenario logs will appear here.</pre>
+        </section>
+
+        <nav class="tabbar" aria-label="Workflow sections">
+          <button type="button" class="tab is-active" data-tab="voter">Voter</button>
+          <button type="button" class="tab" data-tab="observer">Observer</button>
+          <button type="button" class="tab" data-tab="offline">Offline Sync</button>
+        </nav>
+
+        <section class="panel compact endpoint-panel">
+          <div class="history-header">
+            <h3>Endpoint Hint</h3>
+            <div class="actions">
+              <button type="button" id="copyEndpointHintButton">Copy Current</button>
+              <button type="button" id="copyEndpointCatalogButton">Copy Endpoint Map</button>
+            </div>
+          </div>
+          <p class="muted endpoint-note">Hover or focus any action button to preview its target endpoint.</p>
+          <code id="endpointHintText">No endpoint selected yet.</code>
+        </section>
+
+        <section class="grid" id="section-voter" data-section="voter">
+          <article class="panel full">
+            <h3>Voter Flow <span class="service-chip gateway">Gateway</span></h3>
+            <form id="voteForm" class="stack">
+              <label for="verifyToken">Token</label>
+              <input id="verifyToken" name="token" type="text" value="demo-voter-frontend" />
+              <label for="ballotId">Ballot ID</label>
+              <input id="ballotId" name="ballot_id" type="text" value="ballot-2026" />
+              <label for="electionId">Election ID</label>
+              <input id="electionId" name="election_id" type="text" value="election-2026" />
+              <label for="deviceId">Device ID</label>
+              <input id="deviceId" name="device_id" type="text" value="device-1" />
+              <label for="candidate">Selection</label>
+              <select id="candidate" name="candidate">
+                <option value="candidate-a">candidate-a</option>
+                <option value="candidate-b">candidate-b</option>
+                <option value="candidate-c">candidate-c</option>
+              </select>
+              <div class="actions">
+                <button type="button" id="verifyTokenButton" class="btn-gateway">Verify Token</button>
+                <button type="submit" id="castVoteButton" class="btn-gateway">Cast Vote</button>
+              </div>
+            </form>
+            <pre id="voteOutput" class="output">Vote responses will appear here.</pre>
+          </article>
+        </section>
+
+        <section class="grid hidden" id="section-observer" data-section="observer">
+          <article class="panel full">
+            <h3>Observer & Compliance <span class="service-chip gateway">Gateway</span></h3>
+            <form id="observerForm" class="stack">
+              <label for="observerToken">Observer Token</label>
+              <input id="observerToken" type="text" value="observer-auditor-frontend" />
+              <label for="observerElectionId">Election ID</label>
+              <input id="observerElectionId" type="text" value="election-2026" />
+              <label for="evidenceCaseId">Evidence Case ID</label>
+              <input id="evidenceCaseId" type="text" value="case-frontend-review" />
+              <div class="actions wrap">
+                <button type="button" id="auditButton" class="btn-gateway">Audit Log</button>
+                <button type="button" id="tallyButton" class="btn-gateway">Observer Tally</button>
+                <button type="button" id="complianceButton" class="btn-gateway">Compliance Report</button>
+                <button type="button" id="evidenceButton" class="btn-gateway">Offline Sync Evidence</button>
+              </div>
+            </form>
+            <pre id="observerOutput" class="output">Observer responses will appear here.</pre>
+          </article>
+        </section>
+
+        <section class="grid hidden" id="section-offline" data-section="offline">
+          <article class="panel full">
+            <h3>Admin Offline Sync <span class="service-chip offline">Offline Sync</span></h3>
+            <form id="offlineSyncForm" class="stack split">
+              <div>
+                <label for="adminToken">Admin Token</label>
+                <input id="adminToken" type="text" value="admin-operator-frontend" />
+                <label for="offlineTokenHash">Token Hash</label>
+                <input id="offlineTokenHash" type="text" value="frontend-token-hash-1" />
+                <label for="offlineCreatedAt">Created At</label>
+                <input id="offlineCreatedAt" type="text" value="2026-04-08T00:00:00Z" />
+              </div>
+              <div>
+                <label for="offlineDeviceId">Device ID</label>
+                <input id="offlineDeviceId" type="text" value="device-1" />
+                <label for="offlineApprovers">Approvers</label>
+                <input id="offlineApprovers" type="text" value="official-1, official-2" />
+                <label for="offlineCaseId">Evidence Case ID</label>
+                <input id="offlineCaseId" type="text" value="case-offline-frontend" />
+              </div>
+              <div class="actions wrap full-row">
+                <button type="button" id="stageOfflineButton" class="btn-offline">Stage Record</button>
+                <button type="button" id="queueOfflineButton" class="btn-offline">Queue Status</button>
+                <button type="button" id="flushOfflineButton" class="btn-offline">Flush Queue</button>
+                <button type="button" id="operationsOfflineButton" class="btn-offline">Operations</button>
+                <button type="button" id="statusOfflineButton" class="btn-offline">Status</button>
+                <button type="button" id="exportOfflineButton" class="btn-offline">Signed Export</button>
+                <button type="button" id="bundleOfflineButton" class="btn-offline">Evidence Bundle</button>
+              </div>
+            </form>
+            <pre id="offlineOutput" class="output">Offline sync responses will appear here.</pre>
+          </article>
+        </section>
+
+        <section class="panel history-panel">
+          <div class="history-header">
+            <h3>Request Timeline</h3>
+            <div class="actions">
+              <button type="button" id="retryLastFailedButton">Retry Last Failed</button>
+              <label for="historyServiceFilter" class="history-toggle">
+                Service
+                <select id="historyServiceFilter">
+                  <option value="all">All</option>
+                  <option value="gateway">Gateway</option>
+                  <option value="offline">Offline Sync</option>
+                  <option value="mixed">Mixed/Local</option>
+                </select>
+              </label>
+              <label for="historyStatusFilter" class="history-toggle">
+                Status
+                <select id="historyStatusFilter">
+                  <option value="all">All</option>
+                  <option value="success">Success</option>
+                  <option value="client_error">4xx</option>
+                  <option value="server_error">5xx</option>
+                  <option value="network">Network</option>
+                </select>
+              </label>
+              <label for="historyLatencyMs" class="history-toggle">
+                Slow >=
+                <input id="historyLatencyMs" type="number" min="0" step="10" value="1000" />
+                ms
+              </label>
+              <label for="historySlowOnly" class="history-toggle">
+                <input type="checkbox" id="historySlowOnly" />
+                Slow Only
+              </label>
+              <label for="historyFailOnly" class="history-toggle">
+                <input type="checkbox" id="historyFailOnly" />
+                Fail Only
+              </label>
+              <button type="button" id="copyFailedEndpointsButton">Copy Failed Endpoints</button>
+              <button type="button" id="copyVisibleEndpointsButton">Copy Visible Endpoints</button>
+              <button type="button" id="exportHistoryButton">Export JSON</button>
+              <button type="button" id="exportHistoryCsvButton">Export CSV</button>
+              <button type="button" id="clearHistoryButton">Clear</button>
+            </div>
+          </div>
+          <p id="historySummary" class="muted endpoint-note">Showing 0 request(s).</p>
+          <div id="historyMetrics" class="history-metrics">
+            <span class="metric-chip">Visible: <strong id="metricVisible">0</strong></span>
+            <span class="metric-chip">Failed: <strong id="metricFailed">0</strong></span>
+            <span class="metric-chip">Slow: <strong id="metricSlow">0</strong></span>
+          </div>
+          <ul id="requestHistory" class="history-list">
+            <li class="history-empty">No requests yet.</li>
+          </ul>
+        </section>
+      </main>
+    </div>
+
+    <div id="helpModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+      <div class="modal-card">
+        <div class="history-header">
+          <h3 id="helpTitle">Console Help</h3>
+          <div class="actions">
+            <button type="button" id="closeHelpButton">Close</button>
+          </div>
+        </div>
+        <div class="help-grid">
+          <section>
+            <h4>Shortcuts</h4>
+            <ul>
+              <li><code>r</code>: Run scenario</li>
+              <li><code>h</code>: Check health</li>
+              <li><code>c</code>: Copy diff summary</li>
+              <li><code>d</code>: Download diff summary</li>
+              <li>Hover action buttons to inspect and copy endpoint targets.</li>
+              <li>Use Retry Last Failed to replay the most recent failed request in the active filter.</li>
+              <li>Failed timeline rows also expose a direct Retry button.</li>
+              <li>Copy Visible Endpoints copies unique endpoints from the current filtered view.</li>
+              <li>Timeline supports service/status/latency/fail filters, JSON/CSV export, and failed-endpoint copy.</li>
+              <li>Use Slow Only with a threshold to isolate performance outliers.</li>
+              <li><code>?</code>: Open this help</li>
+              <li><code>Esc</code>: Close help</li>
+            </ul>
+          </section>
+          <section>
+            <h4>Scenario Notes</h4>
+            <ul>
+              <li><strong>Smoke Check</strong> runs fast core steps.</li>
+              <li><strong>Full Evidence Run</strong> adds compliance and evidence bundle generation.</li>
+              <li>Diff tools require an imported baseline and replay.</li>
+              <li>Observer tokens must start with <code>observer-</code>.</li>
+              <li>Admin tokens must start with <code>admin-</code>.</li>
+            </ul>
+          </section>
+          <section>
+            <h4>Troubleshooting</h4>
+            <ul>
+              <li>Verify base URLs if health checks fail.</li>
+              <li>Ensure local runtimes are running on ports <code>8000</code> and <code>8100</code>.</li>
+              <li>Use request timeline entries for endpoint and latency clues.</li>
+            </ul>
+          </section>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+  </html>

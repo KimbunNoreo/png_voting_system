@@ -368,6 +368,45 @@ class GatewaySecurityTests(unittest.TestCase):
             },
         )
 
+    def test_public_result_route_rejects_non_get_methods(self) -> None:
+        app = GatewayApplication(router=GatewayRouter())
+        with self.assertRaises(ValueError):
+            app.handle_request(
+                {
+                    "path": "/api/v1/vote/public-result/election-2026",
+                    "method": "POST",
+                    "headers": {},
+                    "is_tls": True,
+                    "client_certificate_verified": True,
+                    "client_certificate": build_client_certificate(),
+                    "ip": "127.0.0.1",
+                    "body": "{}",
+                }
+            )
+
+    def test_public_result_route_is_rate_limited_by_ip(self) -> None:
+        app = GatewayApplication(
+            router=GatewayRouter(),
+            rate_limiter=SlidingWindowRateLimiter(
+                settings=GatewaySettings(vote_public_requests_per_minute=1),
+                store=InMemorySlidingWindowStore(),
+            ),
+        )
+        request = {
+            "path": "/api/v1/vote/public-result/election-2026",
+            "method": "GET",
+            "headers": {},
+            "is_tls": True,
+            "client_certificate_verified": True,
+            "client_certificate": build_client_certificate(),
+            "ip": "127.0.0.1",
+            "body": "{}",
+        }
+        first = app.handle_request(dict(request))
+        self.assertEqual(first["request"]["route_bucket"], "vote_public")
+        with self.assertRaises(ValueError):
+            app.handle_request(dict(request))
+
 
 if __name__ == "__main__":
     unittest.main()

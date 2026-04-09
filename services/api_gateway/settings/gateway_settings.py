@@ -35,6 +35,9 @@ class GatewaySettings:
     default_requests_per_minute: int = field(default_factory=lambda: _read_int("GATEWAY_DEFAULT_REQUESTS_PER_MINUTE", 60))
     nid_requests_per_minute: int = field(default_factory=lambda: _read_int("GATEWAY_NID_REQUESTS_PER_MINUTE", 30))
     vote_requests_per_minute: int = field(default_factory=lambda: _read_int("GATEWAY_VOTE_REQUESTS_PER_MINUTE", 10))
+    vote_public_requests_per_minute: int = field(
+        default_factory=lambda: _read_int("GATEWAY_VOTE_PUBLIC_REQUESTS_PER_MINUTE", 30)
+    )
     vote_token_requests_per_minute: int = field(
         default_factory=lambda: _read_int("GATEWAY_VOTE_TOKEN_REQUESTS_PER_MINUTE", 5)
     )

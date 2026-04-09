@@ -29,6 +29,13 @@ class GatewayRouter:
                 rate_limit_bucket="nid",
             ),
             RouteDefinition(
+                prefix="/api/v1/vote/public-result/",
+                destination="voting_service",
+                requires_bearer_token=False,
+                allowed_methods=("GET",),
+                rate_limit_bucket="vote_public",
+            ),
+            RouteDefinition(
                 prefix="/api/v1/vote/",
                 destination="voting_service",
                 requires_bearer_token=True,

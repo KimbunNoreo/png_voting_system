@@ -376,7 +376,9 @@ class LocalGatewayRuntime:
 
         if normalized_path == "/api/v1/vote/admin/offline-sync/approvals":
             admin_token = self._admin_token(gateway_result["request"]["headers"])
-            operation_id = str(payload.get("operation_id", "")) or None
+            operation_id = str(
+                payload.get("operation_id") or gateway_result["request"].get("query", {}).get("operation_id", "")
+            ) or None
             return 200, {
                 "route": "voting_service",
                 "admin_token": admin_token.removeprefix("admin-"),
@@ -442,9 +444,15 @@ class LocalGatewayRuntime:
 
         if normalized_path == "/api/v1/vote/compliance/offline-sync-evidence":
             observer_token = self._observer_token(gateway_result["request"]["headers"])
-            operation_id = str(payload.get("operation_id", "")) or None
-            case_id = str(payload.get("case_id", "offline-sync-review"))
-            device_id = str(payload.get("device_id", "device-1"))
+            operation_id = str(
+                payload.get("operation_id") or gateway_result["request"].get("query", {}).get("operation_id", "")
+            ) or None
+            case_id = str(
+                payload.get("case_id") or gateway_result["request"].get("query", {}).get("case_id", "offline-sync-review")
+            )
+            device_id = str(
+                payload.get("device_id") or gateway_result["request"].get("query", {}).get("device_id", "device-1")
+            )
             private_key_pem = self.device_private_keys.setdefault(
                 device_id,
                 Phase1StandardCrypto().serialize_private_key(Phase1StandardCrypto().generate_rsa_private_key()),

@@ -108,6 +108,24 @@ class GatewayRoutingTests(unittest.TestCase):
         )
         self.assertEqual(result["request"]["query"], {"lookup": "voter-123"})
 
+    def test_gateway_allows_public_result_route_without_bearer_token(self) -> None:
+        app = GatewayApplication(router=GatewayRouter())
+        result = app.handle_request(
+            {
+                "path": "/api/v1/vote/public-result/election-2026",
+                "method": "GET",
+                "headers": {},
+                "is_tls": True,
+                "client_certificate_verified": True,
+                "client_certificate": build_client_certificate(),
+                "ip": "127.0.0.1",
+                "body": "{}",
+            }
+        )
+        self.assertEqual(result["route"], "voting_service")
+        self.assertFalse(result["request"]["route_requires_bearer_token"])
+        self.assertTrue(result["request"]["auth_checked"])
+
 
 if __name__ == "__main__":
     unittest.main()

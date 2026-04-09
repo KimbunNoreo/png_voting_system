@@ -11,6 +11,9 @@ class HumanFactorsTests(unittest.TestCase):
     def test_freeze_authorization_threshold(self) -> None:
         self.assertFalse(freeze_allowed(("a", "b")))
         self.assertTrue(freeze_allowed(("a", "b", "c")))
+        self.assertTrue(freeze_allowed(("a", "b", "c", "d", "e")))
+        self.assertFalse(freeze_allowed(("a", "b", "c", "d", "e", "f")))
+        self.assertTrue(freeze_allowed(("a", "b", "c", "a")))
 
     def test_required_approvals_for_operations(self) -> None:
         self.assertEqual(required_approvals("global_freeze"), 3)

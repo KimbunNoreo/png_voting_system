@@ -144,10 +144,18 @@ class EmergencyFreezeService:
             },
         )
 
-    def activate(self, state: ElectionState, reason: str, approvals: int):
+    def _validate_approvals(self, approvals: int, *, operation: str) -> None:
         if approvals < 3:
+            raise ValueError(f"Emergency freeze {operation} requires at least 3 approvals")
+        if approvals > 5:
+            raise ValueError(f"Emergency freeze {operation} allows at most 5 approvals")
+
+    def activate(self, state: ElectionState, reason: str, approvals: int):
+        try:
+            self._validate_approvals(approvals, operation="activation")
+        except ValueError:
             self._audit("emergency_freeze_rejected", state, reason, approvals)
-            raise ValueError("Emergency freeze requires at least 3 approvals")
+            raise
         updated_state = ElectionState(election_id=state.election_id, phase=state.phase, freeze_active=True)
         event = EmergencyFreezeEvent.create(state.election_id, True, reason, approvals)
         self.history_store.append(event)
@@ -155,9 +163,11 @@ class EmergencyFreezeService:
         return updated_state, event
 
     def deactivate(self, state: ElectionState, reason: str, approvals: int):
-        if approvals < 3:
+        try:
+            self._validate_approvals(approvals, operation="deactivation")
+        except ValueError:
             self._audit("emergency_freeze_release_rejected", state, reason, approvals)
-            raise ValueError("Emergency freeze deactivation requires at least 3 approvals")
+            raise
         updated_state = ElectionState(election_id=state.election_id, phase=state.phase, freeze_active=False)
         event = EmergencyFreezeEvent.create(state.election_id, False, reason, approvals)
         self.history_store.append(event)

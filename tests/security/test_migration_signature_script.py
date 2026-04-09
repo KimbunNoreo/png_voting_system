@@ -14,6 +14,16 @@ class MigrationScriptTests(unittest.TestCase):
         signature = sign_manifest(manifest, keys["private_key"])
         self.assertTrue(verify_manifest(manifest, signature, keys["public_key"]))
 
+    def test_sign_manifest_rejects_blank_manifest(self) -> None:
+        keys = rotate_signing_key()
+        with self.assertRaises(ValueError):
+            sign_manifest(" ", keys["private_key"])
+
+    def test_verify_manifest_rejects_blank_signature(self) -> None:
+        keys = rotate_signing_key()
+        with self.assertRaises(ValueError):
+            verify_manifest("002_add_ledger", " ", keys["public_key"])
+
 
 if __name__ == "__main__":
     unittest.main()

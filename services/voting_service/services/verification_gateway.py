@@ -11,10 +11,22 @@ class VerificationGateway:
         self.client = client or NIDClient()
 
     def validate_voting_token(self, token: str) -> dict[str, object]:
-        claims = self.client.validate_token(token)
-        if not self.client.check_eligibility(token):
+        token_value = str(token).strip()
+        if not token_value:
+            raise ValueError("Voting token is required")
+
+        claims = self.client.validate_token(token_value)
+        if not isinstance(claims, dict):
+            raise ValueError("Token validation returned invalid claim payload")
+
+        eligibility = self.client.check_eligibility(token_value)
+        if not isinstance(eligibility, bool):
+            raise ValueError("Eligibility check returned non-boolean result")
+        if not eligibility:
             raise ValueError("Token is not eligible for voting")
+
         sanitized_claims = sanitize_voting_claims(claims)
-        if "jti" not in sanitized_claims:
+        jti = sanitized_claims.get("jti")
+        if not isinstance(jti, str) or not jti.strip():
             raise ValueError("Validated token is missing jti")
         return sanitized_claims

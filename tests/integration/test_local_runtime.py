@@ -371,6 +371,46 @@ class LocalRuntimeTests(unittest.TestCase):
             "offline_sync_evidence_bundle_generated",
         )
 
+    def test_compliance_offline_sync_evidence_endpoint_accepts_query_params(self) -> None:
+        runtime = LocalGatewayRuntime.build()
+        runtime.dispatch(
+            "POST",
+            "/api/v1/vote/admin/offline-sync/stage",
+            headers={"Authorization": "Bearer admin-operator-11"},
+            body=json.dumps(
+                {
+                    "record": {
+                        "token_hash": "t11",
+                        "created_at": "2026-04-08T00:00:00Z",
+                    }
+                }
+            ),
+        )
+        runtime.dispatch(
+            "POST",
+            "/api/v1/vote/admin/offline-sync/flush",
+            headers={"Authorization": "Bearer admin-operator-11"},
+            body=json.dumps(
+                {
+                    "device_id": "device-1",
+                    "remote_records": [
+                        {
+                            "token_hash": "t11",
+                            "created_at": "2026-04-08T00:01:00Z",
+                        }
+                    ],
+                    "approvers": ["official-1", "official-2"],
+                }
+            ),
+        )
+        status_code, payload = runtime.dispatch(
+            "GET",
+            "/api/v1/vote/compliance/offline-sync-evidence?case_id=query-case&device_id=device-1",
+            headers={"Authorization": "Bearer observer-auditor-11"},
+        )
+        self.assertEqual(status_code, 200)
+        self.assertEqual(payload["bundle"]["case_id"], "query-case")
+
     def test_compliance_offline_sync_evidence_endpoint_rejects_non_observer_token(self) -> None:
         runtime = LocalGatewayRuntime.build()
         with self.assertRaises(PermissionError):

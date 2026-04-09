@@ -19,6 +19,21 @@ class StubClient:
         return True
 
 
+class IneligibleStubClient(StubClient):
+    def check_eligibility(self, token: str) -> bool:
+        return False
+
+
+class NonBooleanEligibilityStubClient(StubClient):
+    def check_eligibility(self, token: str):  # type: ignore[override]
+        return "yes"
+
+
+class MissingJTIStubClient(StubClient):
+    def validate_token(self, token: str) -> dict[str, object]:
+        return {"eligible": True}
+
+
 class VotingTokenValidationTests(unittest.TestCase):
     def test_gateway_returns_non_pii_claims(self) -> None:
         claims = VerificationGateway(client=StubClient()).validate_voting_token("token")  # type: ignore[arg-type]
@@ -27,6 +42,22 @@ class VotingTokenValidationTests(unittest.TestCase):
         self.assertNotIn("sub", claims)
         self.assertNotIn("address", claims)
         self.assertNotIn("eligible", claims)
+
+    def test_gateway_rejects_blank_token(self) -> None:
+        with self.assertRaises(ValueError):
+            VerificationGateway(client=StubClient()).validate_voting_token("   ")  # type: ignore[arg-type]
+
+    def test_gateway_rejects_ineligible_token(self) -> None:
+        with self.assertRaises(ValueError):
+            VerificationGateway(client=IneligibleStubClient()).validate_voting_token("token")  # type: ignore[arg-type]
+
+    def test_gateway_rejects_non_boolean_eligibility_result(self) -> None:
+        with self.assertRaises(ValueError):
+            VerificationGateway(client=NonBooleanEligibilityStubClient()).validate_voting_token("token")  # type: ignore[arg-type]
+
+    def test_gateway_rejects_claims_missing_jti(self) -> None:
+        with self.assertRaises(ValueError):
+            VerificationGateway(client=MissingJTIStubClient()).validate_voting_token("token")  # type: ignore[arg-type]
 
 
 if __name__ == "__main__":
