@@ -32,6 +32,17 @@ class OfflineSyncEvidenceBundleTests(unittest.TestCase):
         self.assertEqual(bundle.custody_events[1].action, "bundle_created")
         self.assertTrue(bundle.artifacts[0]["signature"])
 
+    def test_offline_sync_bundle_rejects_blank_actor(self) -> None:
+        crypto = Phase1StandardCrypto()
+        private_pem = crypto.serialize_private_key(crypto.generate_rsa_private_key())
+        with self.assertRaises(ValueError):
+            generate_offline_sync_evidence_bundle(
+                case_id="case-offline-2",
+                operations=[{"operation_id": "operation-2"}],
+                actor=" ",
+                signing_key_pem=private_pem,
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

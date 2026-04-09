@@ -25,6 +25,18 @@ class PublicVerificationTests(unittest.TestCase):
         )
         self.assertTrue(disclosed["verified"])
 
+    def test_publish_result_hash_rejects_empty_election_id(self) -> None:
+        with self.assertRaises(ValueError):
+            publish_result_hash(" ", {"candidate-a": 1})
+
+    def test_publish_result_hash_rejects_negative_vote_count(self) -> None:
+        with self.assertRaises(ValueError):
+            publish_result_hash("e1", {"candidate-a": -1})
+
+    def test_publish_result_hash_rejects_empty_tally(self) -> None:
+        with self.assertRaises(ValueError):
+            publish_result_hash("e1", {})
+
 
 if __name__ == "__main__":
     unittest.main()

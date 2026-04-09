@@ -35,6 +35,18 @@ class EvidenceBundleTests(unittest.TestCase):
         self.assertEqual(artifact["sub"], "[redacted]")
         self.assertEqual(artifact["nested"]["address"], "[redacted]")
 
+    def test_bundle_rejects_blank_case_id(self) -> None:
+        with self.assertRaises(ValueError):
+            generate_evidence_bundle(" ", [{"artifact_id": "a3", "kind": "audit"}], "official-1")
+
+    def test_bundle_rejects_blank_actor(self) -> None:
+        with self.assertRaises(ValueError):
+            generate_evidence_bundle("case-3", [{"artifact_id": "a3", "kind": "audit"}], " ")
+
+    def test_bundle_requires_at_least_one_artifact(self) -> None:
+        with self.assertRaises(ValueError):
+            generate_evidence_bundle("case-4", [], "official-1")
+
 
 if __name__ == "__main__":
     unittest.main()

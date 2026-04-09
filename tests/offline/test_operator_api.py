@@ -100,6 +100,63 @@ class OfflineSyncOperatorAPITests(unittest.TestCase):
         self.assertEqual(len(operations), 1)
         self.assertEqual(operations[0]["device_id"], "device-1")
 
+    def test_stage_record_rejects_missing_token_hash(self) -> None:
+        api = OfflineSyncOperatorAPI(SyncEngine())
+        with self.assertRaises(ValueError):
+            api.stage_record({"created_at": "2026-04-08T00:00:00Z"}, operator_id="operator-1")
+
+    def test_flush_rejects_remote_record_without_token_hash(self) -> None:
+        api = OfflineSyncOperatorAPI(SyncEngine(), approval_tracker=ApprovalTracker())
+        api.stage_record({"token_hash": "t5", "created_at": "2026-04-08T00:00:00Z"}, operator_id="operator-5")
+        crypto = Phase1StandardCrypto()
+        keypair = crypto.generate_rsa_private_key()
+        private_pem = crypto.serialize_private_key(keypair)
+        public_pem = crypto.serialize_public_key(keypair.public_key())
+        with self.assertRaises(ValueError):
+            api.flush(
+                remote_records=[{"created_at": "2026-04-08T00:01:00Z"}],
+                device_id="device-1",
+                private_key_pem=private_pem,
+                public_key_pem=public_pem,
+                operator_id="operator-5",
+                approvers=("official-1",),
+            )
+
+    def test_flush_rejects_blank_device_id(self) -> None:
+        api = OfflineSyncOperatorAPI(SyncEngine(), approval_tracker=ApprovalTracker())
+        api.stage_record({"token_hash": "t6", "created_at": "2026-04-08T00:00:00Z"}, operator_id="operator-6")
+        crypto = Phase1StandardCrypto()
+        keypair = crypto.generate_rsa_private_key()
+        private_pem = crypto.serialize_private_key(keypair)
+        public_pem = crypto.serialize_public_key(keypair.public_key())
+        with self.assertRaises(ValueError):
+            api.flush(
+                remote_records=[],
+                device_id=" ",
+                private_key_pem=private_pem,
+                public_key_pem=public_pem,
+                operator_id="operator-6",
+            )
+
+    def test_flush_normalizes_duplicate_and_blank_approvers(self) -> None:
+        api = OfflineSyncOperatorAPI(SyncEngine(), approval_tracker=ApprovalTracker())
+        api.stage_record({"token_hash": "t7", "created_at": "2026-04-08T00:00:00Z"}, operator_id="operator-7")
+        crypto = Phase1StandardCrypto()
+        keypair = crypto.generate_rsa_private_key()
+        private_pem = crypto.serialize_private_key(keypair)
+        public_pem = crypto.serialize_public_key(keypair.public_key())
+        api.flush(
+            remote_records=[{"token_hash": "t7", "created_at": "2026-04-08T00:01:00Z"}],
+            device_id="device-1",
+            private_key_pem=private_pem,
+            public_key_pem=public_pem,
+            operator_id="operator-7",
+            approvers=("official-1", " ", "official-1", "official-2"),
+        )
+        approvals = api.approval_history()
+        self.assertEqual(len(approvals), 2)
+        self.assertEqual({approvals[0]["approver"], approvals[1]["approver"]}, {"official-1", "official-2"})
+
 
 if __name__ == "__main__":
     unittest.main()
