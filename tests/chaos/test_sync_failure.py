@@ -15,6 +15,10 @@ class SyncFailureChaosTests(unittest.TestCase):
         self.assertEqual(result["diagnostics"]["token"], "[redacted]")
         self.assertEqual(result["diagnostics"]["name"], "[redacted]")
 
+    def test_sync_failure_rejects_negative_queue_depth(self) -> None:
+        with self.assertRaises(ValueError):
+            inject_sync_failure(-1)
+
 
 if __name__ == "__main__":
     unittest.main()

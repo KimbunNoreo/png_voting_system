@@ -12,6 +12,21 @@ class RateLimitTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             limiter.check("token-1", "device-1")
 
+    def test_rate_limit_rejects_blank_identifiers(self) -> None:
+        limiter = RateLimitEnforcer(per_token_per_minute=1, per_device_per_minute=10)
+        with self.assertRaises(ValueError):
+            limiter.check(" ", "device-1")
+        with self.assertRaises(ValueError):
+            limiter.check("token-1", " ")
+
+    def test_rate_limit_rejects_invalid_configuration(self) -> None:
+        with self.assertRaises(ValueError):
+            RateLimitEnforcer(per_token_per_minute=0, per_device_per_minute=10)
+        with self.assertRaises(ValueError):
+            RateLimitEnforcer(per_token_per_minute=1, per_device_per_minute=0)
+        with self.assertRaises(ValueError):
+            RateLimitEnforcer(per_token_per_minute=1, per_device_per_minute=1, window_seconds=0)
+
 
 if __name__ == "__main__":
     unittest.main()

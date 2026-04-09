@@ -83,6 +83,8 @@ class SQLiteRateLimitStore:
 
 
 class RateLimitEnforcer:
+    MAX_IDENTIFIER_LENGTH = 256
+
     def __init__(
         self,
         per_token_per_minute: int = 1,
@@ -91,6 +93,12 @@ class RateLimitEnforcer:
         store: RateLimitStore | None = None,
         window_seconds: int = 60,
     ) -> None:
+        if per_token_per_minute <= 0:
+            raise ValueError("Per-token rate limit must be positive")
+        if per_device_per_minute <= 0:
+            raise ValueError("Per-device rate limit must be positive")
+        if window_seconds <= 0:
+            raise ValueError("Rate limit window must be positive")
         self.per_token = per_token_per_minute
         self.per_device = per_device_per_minute
         self.window_seconds = window_seconds
@@ -112,11 +120,21 @@ class RateLimitEnforcer:
             window_seconds=window_seconds,
         )
 
+    def _normalize_identifier(self, value: str, *, label: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError(f"{label} is required")
+        if len(normalized) > self.MAX_IDENTIFIER_LENGTH:
+            raise ValueError(f"{label} is too long")
+        return normalized
+
     def check(self, token_hash: str, device_id: str) -> None:
+        normalized_token_hash = self._normalize_identifier(token_hash, label="Token hash")
+        normalized_device_id = self._normalize_identifier(device_id, label="Device ID")
         now = datetime.now(timezone.utc)
-        token_count = self.store.add_and_count("token", token_hash, now, self.window_seconds)
+        token_count = self.store.add_and_count("token", normalized_token_hash, now, self.window_seconds)
         if token_count > self.per_token:
             raise ValueError("Per-token rate limit exceeded")
-        device_count = self.store.add_and_count("device", device_id, now, self.window_seconds)
+        device_count = self.store.add_and_count("device", normalized_device_id, now, self.window_seconds)
         if device_count > self.per_device:
             raise ValueError("Per-device rate limit exceeded")

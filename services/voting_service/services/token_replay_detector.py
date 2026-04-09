@@ -117,6 +117,8 @@ class SQLiteTokenReplayStore:
 class TokenReplayDetector:
     """Detect global token reuse across devices and record replay attempts durably."""
 
+    MAX_IDENTIFIER_LENGTH = 256
+
     def __init__(self, store: TokenReplayStore | None = None) -> None:
         self.store = store or InMemoryTokenReplayStore()
 
@@ -124,17 +126,27 @@ class TokenReplayDetector:
     def with_sqlite_store(cls, database_path: str) -> TokenReplayDetector:
         return cls(store=SQLiteTokenReplayStore(database_path))
 
+    def _normalize_identifier(self, value: str, *, label: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError(f"{label} is required")
+        if len(normalized) > self.MAX_IDENTIFIER_LENGTH:
+            raise ValueError(f"{label} is too long")
+        return normalized
+
     def register(self, token_hash: str, device_id: str) -> TokenReplayAttempt | None:
-        original = self.store.first_seen_device(token_hash)
+        normalized_token_hash = self._normalize_identifier(token_hash, label="Token hash")
+        normalized_device_id = self._normalize_identifier(device_id, label="Device ID")
+        original = self.store.first_seen_device(normalized_token_hash)
         if original is None:
             try:
-                self.store.register_first_seen(token_hash, device_id)
+                self.store.register_first_seen(normalized_token_hash, normalized_device_id)
             except sqlite3.IntegrityError:
-                original = self.store.first_seen_device(token_hash)
+                original = self.store.first_seen_device(normalized_token_hash)
             else:
                 return None
-        if original is None or original == device_id:
+        if original is None or original == normalized_device_id:
             return None
-        attempt = TokenReplayAttempt.create(token_hash, original, device_id)
+        attempt = TokenReplayAttempt.create(normalized_token_hash, original, normalized_device_id)
         self.store.record_attempt(attempt)
         return attempt

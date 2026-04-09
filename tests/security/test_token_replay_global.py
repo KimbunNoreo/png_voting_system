@@ -37,6 +37,13 @@ class TokenReplayGlobalTests(unittest.TestCase):
         self.assertIsNotNone(replay)
         self.assertEqual(replay.original_device_id, "device-1")
 
+    def test_replay_detector_rejects_blank_identifiers(self) -> None:
+        detector = TokenReplayDetector()
+        with self.assertRaises(ValueError):
+            detector.register(" ", "device-1")
+        with self.assertRaises(ValueError):
+            detector.register("token-hash", " ")
+
     def test_replay_detection_survives_restart_with_sqlite_store(self) -> None:
         database_dir = Path("data") / "test_runtime"
         database_dir.mkdir(parents=True, exist_ok=True)

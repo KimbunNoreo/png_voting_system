@@ -19,6 +19,10 @@ class DeviceCompromiseChaosTests(unittest.TestCase):
         self.assertEqual(result["diagnostics"]["authorization"], "[redacted]")
         self.assertEqual(result["diagnostics"]["sub"], "[redacted]")
 
+    def test_device_failure_rejects_blank_device_id(self) -> None:
+        with self.assertRaises(ValueError):
+            simulate_device_failure(" ", True)
+
 
 if __name__ == "__main__":
     unittest.main()
